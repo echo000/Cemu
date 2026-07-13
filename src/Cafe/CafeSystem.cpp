@@ -922,8 +922,35 @@ namespace CafeSystem
 		// start system
 		sSystemRunning = true;
 		WindowSystem::NotifyGameLoaded();
+		WriteSalukiInfo();
 		std::thread t(_LaunchTitleThread);
 		t.detach();
+	}
+
+	void WriteSalukiInfo()
+	{
+		const uint64_t vm = reinterpret_cast<uint64_t>(memory_base);
+		const uint64_t title_id = CafeSystem::GetForegroundTitleId();
+
+		const fs::path base_path = sGameInfo_ForegroundTitle.GetBase().GetPath();
+		const std::string rpx_name = fs::path(_pathToExecutable).filename().string();
+		std::string module_path;
+		if (sLaunchModeIsStandalone)
+			module_path = base_path.string(); // standalone launch: path is the rpx itself
+		else
+			module_path = (base_path / "code" / rpx_name).string();
+
+		std::ofstream f("cemu_info.wsi", std::ios::binary | std::ios::trunc);
+		if (!f)
+		{
+			cemuLog_log(LogType::Force, "guest_info: failed to open cemu_info.wsi");
+			return;
+		}
+		f.write(reinterpret_cast<const char*>(&vm), sizeof(vm));
+		f.write(reinterpret_cast<const char*>(&title_id), sizeof(title_id));
+		f.write(module_path.c_str(), module_path.length() + 1);
+		cemuLog_log(LogType::Force, "guest_info: wrote cemu_info.wsi, base={:016x}, title={:016x}, module={}",
+					vm, title_id, module_path);
 	}
 
 	bool IsTitleRunning()
